@@ -1,12 +1,13 @@
 library(tidyverse)
 library(rstanarm)
 library(yardstick)
+library(ggplot2)
+library(data.table)
 
 options(scipen = 999)
 set.seed(1818)
 
 ### define functions ###
-
 # create linear regression algorithm using linear algebra
 linear_regression <- function(f, df) {
   y <- model.frame(f, data=df)[,1]
@@ -70,17 +71,17 @@ predict_lm <- function(lm_mod, newdata, type) {
 
 ### data cleaning ###
 
-kickstarters <- read.csv("ks-projects-201801.csv")
+kickstarters <- fread("ks-projects-201801.csv")
 
 # view data frame structure
-kickstarters %>% glimpse()
+kickstarters %>% str()
 
 kickstarters_clean <- kickstarters %>%
-  # create length variable
+    # create length variable
   mutate(length = as.numeric(as.Date(deadline)-as.Date(launched))) %>%
   # remove unneeded variables
   select_if(is.numeric) %>%
-  select(-c(ID, goal, pledged, usd.pledged))
+  select(-c(ID, goal, pledged, `usd pledged`))
 
 ### modeling ###
 
@@ -93,12 +94,14 @@ lm_mod <- linear_regression(formula_1, kickstarters_clean)
 # bootstrap classical linear regression
 n_boot <- 1000
 n_samples <- 100
-mod_boot <- data.frame()
+mod_boot <- list()
 for(i in 1:n_boot) {
   idx <- sample(1:nrow(kickstarters_clean), n_samples)
   mod_temp <- linear_regression(formula_1, kickstarters_clean %>% slice(idx))
-  mod_boot <- rbind(mod_boot, t(mod_temp))
+  mod_boot[[i]] <- t(mod_temp)
 }
+
+mod_boot <- as.data.frame(do.call(rbind, mod_boot))
 
 # bayesian linear regression
 bayes_mod <- stan_glm(formula_1, data=kickstarters_clean, seed=1818)
@@ -107,6 +110,8 @@ summary(bayes_mod)
 rm(kickstarters, mod_temp) # clear memory of uneeded variables
 
 # predictions
+setDF(kickstarters_clean) # convert dataset back to dataframe
+
 preds_lm <- predict_lm(lm_mod, kickstarters_clean, type = 0) # classical
 
 boot_coefs <- lm_summary(mod_boot)
@@ -130,7 +135,8 @@ preds_df <- data.frame(
 
 m_set <- metric_set(rsq, rmse, mae)
 
-m_set(kickstarters_clean, preds_df$true, preds_df$classical)
+error <- list()
+error[[1]] <- data.frame(m_set(kickstarters_clean, preds_df$true, preds_df$classical), method = "Classical")
 # A tibble: 3 x 3
 #   .metric .estimator .estimate
 #   <chr>   <chr>          <dbl>
@@ -138,21 +144,21 @@ m_set(kickstarters_clean, preds_df$true, preds_df$classical)
 # 2 rmse    standard   59910.   
 # 3 mae     standard    5892.  
 
-m_set(kickstarters_clean, preds_df$true, preds_df$boot_mean)
+error[[2]] <- data.frame(m_set(kickstarters_clean, preds_df$true, preds_df$boot_mean), method = "Boot.Mean")
 #   .metric .estimator .estimate
 #   <chr>   <chr>          <dbl>
 # 1 rsq     standard       0.353
 # 2 rmse    standard   85129.   
 # 3 mae     standard    7274.  
 
-m_set(kickstarters_clean, preds_df$true, preds_df$boot_median)
+error[[3]] <- data.frame(m_set(kickstarters_clean, preds_df$true, preds_df$boot_median), method = "Boot.Median")
 #   .metric .estimator .estimate
 #   <chr>   <chr>          <dbl>
 # 1 rsq     standard       0.542
 # 2 rmse    standard   61707.   
 # 3 mae     standard    5461. 
 
-m_set(kickstarters_clean, preds_df$true, preds_df$bayes_mean)
+error[[4]] <- data.frame(m_set(kickstarters_clean, preds_df$true, preds_df$bayes_mean), method = "Bayes.Mean")
 # A tibble: 3 x 3
 #   .metric .estimator .estimate
 #   <chr>   <chr>          <dbl>
@@ -160,7 +166,7 @@ m_set(kickstarters_clean, preds_df$true, preds_df$bayes_mean)
 # 2 rmse    standard   59910.   
 # 3 mae     standard    5893.   
 
-m_set(kickstarters_clean, preds_df$true, preds_df$bayes_median)
+error[[5]] <- data.frame(m_set(kickstarters_clean, preds_df$true, preds_df$bayes_median), method = "Bayes.Median")
 # A tibble: 3 x 3
 # .metric .estimator .estimate
 #   <chr>   <chr>          <dbl>
@@ -168,8 +174,9 @@ m_set(kickstarters_clean, preds_df$true, preds_df$bayes_median)
 # 2 rmse    standard   59910.   
 # 3 mae     standard    5893.
 
-
-
 # All linear regression methods seemed to produce similar results with the exception of the bootstap model
 # that uses the mean coefficients. The bootstrap using median had the edge on all other models
 # Interestingly, the standard classical model has nearly identical results to the bayesian model.
+
+error_df <- data.frame(data.table::rbindlist(error, use.names = TRUE, fill = F, idcol = T))
+error_df <- error_df %>% select(-.id)
