@@ -2,8 +2,8 @@ library(tidyverse)
 library(rstanarm)
 library(yardstick)
 library(ggplot2)
-library(gridExtra)
 library(data.table)
+library(ggridges)
 
 options(scipen = 999)
 set.seed(1818)
@@ -83,6 +83,25 @@ kickstarters_clean <- kickstarters %>%
   # remove unneeded variables
   select_if(is.numeric) %>%
   select(-c(ID, goal, pledged, `usd pledged`))
+
+### Initial Visualizations ###
+backers_timeseries <- ggplot(kickstarters, aes(as.Date(deadline),backers, color=fct_lump(main_category,6))) +
+  geom_line() +
+  labs(title="Backers by category over time", x="Deadline", y="Backers", color="Main Category") 
+backers_timeseries
+
+ggsave("plots/backers_timeseries.png", plot=backers_timeseries)
+
+pledged_density <- ggplot(kickstarters, aes(usd_pledged_real, fct_lump(state,3), fill=fct_lump(state,3))) +
+  geom_density_ridges(alpha = 0.4) +
+  xlim(0,10000) + # excludes heavy outliers
+  labs(title="Density of amount pledged by kickstarter success", 
+       x="Amount Pledged (USD $)", y="Success State") +
+  guides(fill=FALSE) 
+  
+pledged_density
+
+ggsave("plots/pledged_density.jpg", plot=pledged_density)
 
 ### modeling ###
 
@@ -178,3 +197,19 @@ error[[5]] <- data.frame(m_set(kickstarters_clean, preds_df$true, preds_df$bayes
 # All linear regression methods seemed to produce similar results with the exception of the bootstap model
 # that uses the mean coefficients. The bootstrap using median had the edge on all other models
 # Interestingly, the standard classical model has nearly identical results to the bayesian model.
+
+### visualizations ###
+
+# error plot
+error_df <- data.frame(data.table::rbindlist(error, use.names = TRUE, fill = F, idcol = T))
+error_df <- error_df %>% select(-.id)
+
+error_plot <- ggplot(error_df, aes(x=method, y=.estimate, fill=method)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~.metric, scales = "free") +
+  labs(title = "Performance Metrics by Model") +
+  guides(fill=FALSE) +
+  theme(axis.text.x = element_text(angle = 90))
+error_plot
+
+ggsave("plots/Error_Plot.png", plot=error_plot)
