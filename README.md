@@ -1,6 +1,6 @@
-# Analysis of Kickstarters - CS 510 Midterm
+# Analysis of Kickstarters - CS 510 Final
 ## Goal
-The goal of the analysis is to determine how to best predict the money pledged to a given kickstarter using various linear methods. Comparing an ordinary linear model, boostrapped linear model, and bayesian linear model, I evaluate several different metrics to determine which method provided the most accurate result. The final draft of the analysis is stored in the [**midterm_complete.R**](https://github.com/ander428/CS-510-Midterm/blob/main/midterm_complete.R) file. The midterm_first_draft.R file is stored to document the project before initial feedback.
+The goal of the analysis is to determine how to best predict the money pledged to a given kickstarter using various linear methods. Comparing an ordinary linear model, boostrapped linear model, and bayesian linear model, I evaluate several different metrics to determine which method provided the most accurate result. The final draft of the analysis is stored in the [**final.Rmd**](https://github.com/ander428/CS-510-Final/blob/main/src/final.Rmd) file. A compiled report can be found in the [**final.html**](https://github.com/ander428/CS-510-Final/blob/main/final.html) file. Note, this is not precompiled on Github and will need to be opened in a browser. The midterm_first_draft.R and midterm_complete.R files are stored to document the project before revisions.
 
 ## Data
 This project is for Computing for Scientists (CS 510) at Chapman University. The dataset used is [kickstarters over the course of 2018](https://www.kaggle.com/kemical/kickstarter-projects) containing various information about the kickstarters' goals, category, etc. Here is a brief data dictionary:
